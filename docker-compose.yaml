@@ -1,0 +1,73 @@
+name: semantic-faq-assistant
+
+x-app: &app
+  build: .
+  image: semantic-faq-assistant:latest
+  env_file: .env
+  environment:
+    VECTOR_STORE: postgres
+    DATABASE_URL: postgresql://faq:faq@db:5432/faq
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_RESULT_BACKEND: redis://redis:6379/1
+  restart: unless-stopped
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: faq
+      POSTGRES_PASSWORD: faq
+      POSTGRES_DB: faq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faq -d faq"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot job: create schema and (incrementally) embed the knowledge base.
+  # Re-running it is cheap: unchanged items are skipped by content hash.
+  migrate:
+    <<: *app
+    command: ["sh", "-c", "faq-admin init-db && faq-admin sync"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "faq_assistant.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
