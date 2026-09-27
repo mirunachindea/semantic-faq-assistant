@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # --- LLM / embeddings (provider-agnostic, resolved through LangChain) --
     llm_provider: str = "openai"
-    chat_model: str = "gpt-4o-mini"
+    chat_model: str = "gpt-5.4-mini"
     chat_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     embedding_provider: str = "openai"
     embedding_model: str = "text-embedding-3-small"
