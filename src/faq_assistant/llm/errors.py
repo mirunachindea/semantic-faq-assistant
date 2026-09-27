@@ -12,6 +12,11 @@ _HTTP_TOO_MANY_REQUESTS = 429
 
 
 def _is_rate_limit(exc: BaseException) -> bool:
+    """Check if an exception indicates rate limiting.
+
+    Returns:
+        True if the exception is a rate limit error, False otherwise.
+    """
     # Provider-agnostic: OpenAI, Anthropic, Google... all expose either a *RateLimit* error
     # class or an HTTP status code on the exception.
     return (
@@ -26,6 +31,9 @@ async def upstream_call(operation: str) -> AsyncIterator[None]:
 
     Covers transport errors, timeouts, rate limits, content-filter refusals and malformed
     (unparseable / schema-violating) structured outputs.
+
+    Returns:
+        An async context manager that yields None and handles exceptions.
     """
     try:
         yield

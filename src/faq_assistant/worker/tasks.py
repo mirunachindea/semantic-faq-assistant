@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 async def _sync(collection: str, raw_items: list[dict[str, Any]], *, prune: bool) -> dict[str, Any]:
+    """Curate and incrementally embed items into a collection.
+
+    Args:
+        collection: Target collection name.
+        raw_items: Raw FAQ items to process.
+        prune: Whether to delete items not in raw_items.
+
+    Returns:
+        A dictionary with sync statistics and rejected items.
+    """
     settings = get_settings()
     source = parse_knowledge_base({"knowledge_base_items": raw_items})
     curated = curate_entries(source.knowledge_base_items, collection)
@@ -51,6 +61,15 @@ def sync_collection_task(
 
     Idempotent: re-running with the same payload embeds nothing (content hashing), which makes
     ``acks_late`` redelivery and rate-limit retries safe.
+
+    Args:
+        self: Celery task instance.
+        collection: Target collection name.
+        raw_items: Raw FAQ items to curate and embed.
+        prune: Whether to delete stored items not in raw_items.
+
+    Returns:
+        A dictionary with sync statistics and rejected items.
     """
     logger.info("Sync task started for %r (%d items)", collection, len(raw_items))
     return asyncio.run(_sync(collection, raw_items, prune=prune))

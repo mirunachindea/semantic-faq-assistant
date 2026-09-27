@@ -32,6 +32,15 @@ async def ask_question(
     * ``source="local"``: a semantically matching FAQ entry was found (answer personalised).
     * ``source="openai"``: in-scope question not covered by the FAQ, answered by the LLM.
     * ``source="compliance"``: out-of-scope or unsafe question, fixed refusal message.
+
+    Args:
+        payload: The user's question request.
+        assistant: The FAQ assistant service.
+        settings: Application configuration.
+        _token: Validated API token (authentication).
+
+    Returns:
+        An AskQuestionResponse with the answer and its source information.
     """
     if len(payload.user_question) > settings.max_question_chars:
         raise HTTPException(

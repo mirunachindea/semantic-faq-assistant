@@ -24,7 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 def schema_sql(dimensions: int) -> str:
-    """DDL for the knowledge-base schema (idempotent)."""
+    """DDL for the knowledge-base schema (idempotent).
+
+    Args:
+        dimensions: Dimensionality of the embedding vectors.
+
+    Returns:
+        A SQL DDL string for creating the schema.
+    """
     dims = int(dimensions)  # interpolated into DDL: force an int to rule out injection
     return f"""
     CREATE TABLE IF NOT EXISTS collections (
@@ -96,6 +103,14 @@ class PostgresVectorStore:
     """pgvector-backed store with HNSW cosine indexes."""
 
     def __init__(self, dsn: str, dimensions: int, *, min_size: int = 1, max_size: int = 10):
+        """Initialize the PostgreSQL vector store.
+
+        Args:
+            dsn: PostgreSQL connection string.
+            dimensions: Embedding vector dimensionality.
+            min_size: Minimum pool connection count.
+            max_size: Maximum pool connection count.
+        """
         self._dsn = dsn
         self._dimensions = dimensions
         self._pool = AsyncConnectionPool(
@@ -108,7 +123,11 @@ class PostgresVectorStore:
         )
 
     async def initialize(self) -> None:
-        """Create the extension and schema, then open the connection pool."""
+        """Create the extension and schema, then open the connection pool.
+
+        Returns:
+            None. The connection pool is opened as a side effect.
+        """
         try:
             async with await psycopg.AsyncConnection.connect(self._dsn, autocommit=True) as conn:
                 await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
@@ -120,6 +139,11 @@ class PostgresVectorStore:
 
     @asynccontextmanager
     async def _connection(self) -> AsyncIterator[psycopg.AsyncConnection[dict[str, Any]]]:
+        """Context manager for acquiring a connection from the pool.
+
+        Returns:
+            An async context manager yielding a PostgreSQL connection.
+        """
         try:
             async with self._pool.connection() as conn:
                 yield conn
@@ -129,7 +153,11 @@ class PostgresVectorStore:
             raise VectorStoreError(msg) from exc
 
     async def ensure_collection(self, name: str, embedding_model: str, dimensions: int) -> None:
-        """Create the collection if missing; fail if it exists with another embedding model."""
+        """Create the collection if missing; fail if it exists with another embedding model.
+
+        Returns:
+            None. The collection is created or verified as a side effect.
+        """
         if dimensions != self._dimensions:
             msg = f"Store is configured for {self._dimensions}-d vectors, got {dimensions}"
             raise EmbeddingModelMismatchError(msg)
@@ -151,7 +179,11 @@ class PostgresVectorStore:
             raise EmbeddingModelMismatchError(msg)
 
     async def list_collections(self) -> list[CollectionInfo]:
-        """Return all collections with their item counts."""
+        """Return all collections with their item counts.
+
+        Returns:
+            A list of CollectionInfo objects for all stored collections.
+        """
         async with self._connection() as conn:
             cursor = await conn.execute(
                 "SELECT c.name, c.embedding_model, c.embedding_dimensions, COUNT(f.id) AS n "
@@ -165,12 +197,20 @@ class PostgresVectorStore:
         ]
 
     async def delete_collection(self, name: str) -> None:
-        """Delete a collection (items cascade)."""
+        """Delete a collection (items cascade).
+
+        Returns:
+            None. The collection is deleted as a side effect.
+        """
         async with self._connection() as conn:
             await conn.execute("DELETE FROM collections WHERE name = %s", (name,))
 
     async def get_content_hashes(self, collection: str) -> dict[str, str]:
-        """Return ``{item_id: content_hash}`` for change detection."""
+        """Return ``{item_id: content_hash}`` for change detection.
+
+        Returns:
+            A dictionary mapping item IDs to their content hashes.
+        """
         async with self._connection() as conn:
             cursor = await conn.execute(
                 "SELECT id, content_hash FROM faq_items WHERE collection = %s", (collection,)
@@ -179,7 +219,11 @@ class PostgresVectorStore:
         return {r["id"]: r["content_hash"] for r in rows}
 
     async def upsert(self, collection: str, items: Sequence[EmbeddedItem]) -> None:
-        """Insert or update items in a single transaction."""
+        """Insert or update items in a single transaction.
+
+        Returns:
+            None. Items are upserted as a side effect.
+        """
         if not items:
             return
         params = [
@@ -200,7 +244,11 @@ class PostgresVectorStore:
             await cursor.executemany(_UPSERT_SQL, params)
 
     async def delete_items(self, collection: str, item_ids: Sequence[str]) -> None:
-        """Delete items by id."""
+        """Delete items by id.
+
+        Returns:
+            None. Items are deleted as a side effect.
+        """
         if not item_ids:
             return
         async with self._connection() as conn:
@@ -212,7 +260,11 @@ class PostgresVectorStore:
     async def search(
         self, collection: str, embedding: Sequence[float], top_k: int
     ) -> list[tuple[FAQItem, float]]:
-        """Return up to ``top_k`` items by max cosine similarity over both representations."""
+        """Return up to ``top_k`` items by max cosine similarity over both representations.
+
+        Returns:
+            A list of (FAQItem, similarity_score) tuples sorted by descending similarity.
+        """
         async with self._connection() as conn:
             cursor = await conn.execute("SELECT 1 FROM collections WHERE name = %s", (collection,))
             if await cursor.fetchone() is None:
@@ -242,7 +294,11 @@ class PostgresVectorStore:
         ]
 
     async def ping(self) -> bool:
-        """Return ``True`` if the database answers a trivial query."""
+        """Return ``True`` if the database answers a trivial query.
+
+        Returns:
+            True if the database is reachable, False on error.
+        """
         try:
             async with self._connection() as conn:
                 await conn.execute("SELECT 1")
@@ -251,5 +307,9 @@ class PostgresVectorStore:
         return True
 
     async def close(self) -> None:
-        """Close the connection pool."""
+        """Close the connection pool.
+
+        Returns:
+            None. The connection pool is closed as a side effect.
+        """
         await self._pool.close()

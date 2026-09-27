@@ -49,12 +49,30 @@ _ERROR_MAP: tuple[tuple[type[FAQAssistantError], int, str], ...] = (
 
 
 def _error_response(status_code: int, detail: str) -> JSONResponse:
+    """Create a JSON error response with request correlation.
+
+    Args:
+        status_code: HTTP status code.
+        detail: Error message to return to the client.
+
+    Returns:
+        A JSONResponse containing the error details and request ID.
+    """
     body = ErrorResponse(detail=detail, request_id=request_id_var.get())
     headers = {"Retry-After": "10"} if status_code in {429, 503} else None
     return JSONResponse(status_code=status_code, content=body.model_dump(), headers=headers)
 
 
 async def _domain_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Map application errors to HTTP responses.
+
+    Args:
+        request: The HTTP request context.
+        exc: The exception that was raised.
+
+    Returns:
+        A JSONResponse with the appropriate HTTP status code and error details.
+    """
     for error_type, status_code, detail in _ERROR_MAP:
         if isinstance(exc, error_type):
             logger.warning("%s on %s: %s", type(exc).__name__, request.url.path, exc)
@@ -63,11 +81,27 @@ async def _domain_error_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 async def _unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Handle unexpected exceptions.
+
+    Args:
+        request: The HTTP request context.
+        exc: The unexpected exception.
+
+    Returns:
+        A JSONResponse with HTTP 500 status code and generic error message.
+    """
     logger.error("Unhandled error on %s", request.url.path, exc_info=exc)
     return _error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "Internal server error.")
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Attach exception handlers to ``app``."""
+    """Attach exception handlers to ``app``.
+
+    Args:
+        app: FastAPI application instance.
+
+    Returns:
+        None. Handlers are registered on the app as a side effect.
+    """
     app.add_exception_handler(FAQAssistantError, _domain_error_handler)
     app.add_exception_handler(Exception, _unhandled_error_handler)

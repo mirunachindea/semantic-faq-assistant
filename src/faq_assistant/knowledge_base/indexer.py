@@ -22,7 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 def content_hash(item: FAQItem, embedding_model: str) -> str:
-    """Hash of everything that influences an item's stored representation."""
+    """Hash of everything that influences an item's stored representation.
+
+    Args:
+        item: The FAQ item to hash.
+        embedding_model: The embedding model name to include in the hash.
+
+    Returns:
+        A SHA256 hex digest representing the item's content.
+    """
     payload = "\x1f".join(
         (embedding_model, item.question_text, item.document_text, item.question, item.category)
     )
@@ -41,7 +49,11 @@ class SyncReport:
     embedded_texts: int = 0
 
     def as_dict(self) -> dict[str, object]:
-        """JSON-serialisable representation."""
+        """JSON-serialisable representation of the sync report.
+
+        Returns:
+            A dictionary with sync statistics (added, updated, unchanged, deleted counts).
+        """
         return {
             "collection": self.collection,
             "added": len(self.added),
@@ -64,6 +76,15 @@ class EmbeddingIndexer:
         dimensions: int,
         batch_size: int = 128,
     ):
+        """Initialize the EmbeddingIndexer.
+
+        Args:
+            store: Vector store to sync items into.
+            embeddings: Embeddings provider for generating vectors.
+            embedding_model: Name of the embedding model for hash tracking.
+            dimensions: Expected dimensionality of embedding vectors.
+            batch_size: Number of items to process in each embedding batch.
+        """
         self._store = store
         self._embeddings = embeddings
         self._embedding_model = embedding_model
@@ -85,6 +106,9 @@ class EmbeddingIndexer:
             items: Curated items that should be present in the collection.
             prune: Delete stored items that are not in ``items``.
             force: Re-embed everything, ignoring stored hashes.
+
+        Returns:
+            A SyncReport summarizing the operations performed.
         """
         await self._store.ensure_collection(collection, self._embedding_model, self._dimensions)
         existing = await self._store.get_content_hashes(collection)
@@ -114,6 +138,14 @@ class EmbeddingIndexer:
         return report
 
     async def _embed_batch(self, batch: Sequence[tuple[FAQItem, str]]) -> list[EmbeddedItem]:
+        """Generate embeddings for a batch of items.
+
+        Args:
+            batch: Sequence of tuples containing FAQItem and its content hash.
+
+        Returns:
+            A list of EmbeddedItem objects with generated embeddings.
+        """
         texts = [item.question_text for item, _ in batch] + [
             item.document_text for item, _ in batch
         ]

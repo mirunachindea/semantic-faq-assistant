@@ -22,6 +22,14 @@ class FAQAssistant:
         *,
         collection: str,
     ):
+        """Initialize the FAQ assistant.
+
+        Args:
+            searcher: Hybrid searcher for retrieving FAQ candidates.
+            router: Semantic router for making routing decisions.
+            responders: Mapping of routes to responder implementations.
+            collection: Default collection name for searches.
+        """
         missing = set(Route) - set(responders)
         if missing:
             msg = f"No responder configured for routes: {sorted(missing)}"
@@ -35,7 +43,14 @@ class FAQAssistant:
         return await self._searcher.search(question, self._collection)
 
     async def ask(self, question: str) -> AssistantAnswer:
-        """Route ``question`` and produce an answer."""
+        """Route ``question`` and produce an answer.
+
+        Args:
+            question: The user's question.
+
+        Returns:
+            An AssistantAnswer with the routed answer and metadata.
+        """
         context = RoutingContext(question, self._retrieve)
         decision = await self._router.route(context)
         return await self._responders[decision.route].respond(question, decision)

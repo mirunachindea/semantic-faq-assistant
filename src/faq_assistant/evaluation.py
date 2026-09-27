@@ -41,11 +41,20 @@ class PrefetchedQueryEmbeddings(Embeddings):
     """
 
     def __init__(self, inner: Embeddings):
+        """Initialize with an inner embeddings model.
+
+        Args:
+            inner: The underlying embeddings model to wrap.
+        """
         self._inner = inner
         self._cache: dict[str, list[float]] = {}
 
     async def prefetch(self, queries: Sequence[str]) -> None:
-        """Embed ``queries`` (with the searcher's preprocessing) in a single batch."""
+        """Embed ``queries`` (with the searcher's preprocessing) in a single batch.
+
+        Returns:
+            None. Embeddings are cached as a side effect.
+        """
         texts = sorted({to_search_text(q) for q in queries} - self._cache.keys())
         if texts:
             vectors = await self._inner.aembed_documents(texts)
@@ -77,7 +86,14 @@ class EvalCase(BaseModel):
 
 
 def load_eval_cases(path: Path) -> list[EvalCase]:
-    """Read a JSONL evaluation dataset (blank lines and ``#`` comments are ignored)."""
+    """Read a JSONL evaluation dataset (blank lines and ``#`` comments are ignored).
+
+    Args:
+        path: Path to the JSONL file containing evaluation cases.
+
+    Returns:
+        A list of EvalCase objects parsed from the JSONL file.
+    """
     lines = path.read_text(encoding="utf-8").splitlines()
     return [
         EvalCase.model_validate(json.loads(line))
@@ -87,6 +103,7 @@ def load_eval_cases(path: Path) -> list[EvalCase]:
 
 
 def _same(a: str | None, b: str | None) -> bool:
+    """Check if two questions are the same, ignoring case and whitespace."""
     return (
         a is not None
         and b is not None
@@ -114,7 +131,17 @@ async def evaluate_retrieval(
     cases: Sequence[EvalCase],
     thresholds: Sequence[float] = (0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85),
 ) -> RetrievalReport:
-    """Compute ranking metrics and a local-answer threshold sweep."""
+    """Compute ranking metrics and a local-answer threshold sweep.
+
+    Args:
+        searcher: Hybrid searcher instance to use for retrievals.
+        collection: Collection name to search within.
+        cases: Evaluation cases with expected questions.
+        thresholds: Score thresholds to sweep for local-answer analysis.
+
+    Returns:
+        A RetrievalReport with hit rates, MRR, and threshold sweep results.
+    """
     report = RetrievalReport()
     # (top-1 score, case has a KB answer, top-1 is that answer)
     top1: list[tuple[float, bool, bool]] = []
@@ -175,7 +202,15 @@ class RoutingReport:
 
 
 async def evaluate_routing(assistant: FAQAssistant, cases: Sequence[EvalCase]) -> RoutingReport:
-    """Run every case through the full assistant (uses the chat model)."""
+    """Run every case through the full assistant (uses the chat model).
+
+    Args:
+        assistant: FAQ assistant instance to evaluate.
+        cases: Evaluation cases with expected routes and questions.
+
+    Returns:
+        A RoutingReport with route accuracy, match accuracy, and confusion matrix.
+    """
     report = RoutingReport(cases=len(cases))
     confusion: Counter[str] = Counter()
     correct_route = correct_match = local_cases = 0

@@ -63,13 +63,28 @@ class Settings(BaseSettings):
     @field_validator("api_tokens", "admin_tokens", mode="before")
     @classmethod
     def _split_tokens(cls, value: object) -> object:
-        """Accept a comma-separated string (the natural env-var format)."""
+        """Accept a comma-separated string (the natural env-var format).
+
+        Args:
+            value: The raw value from the environment, either a string or already-parsed list.
+
+        Returns:
+            A list of token strings parsed from the input.
+        """
         if isinstance(value, str):
             return [token.strip() for token in value.split(",") if token.strip()]
         return value
 
     @model_validator(mode="after")
     def _check_thresholds(self) -> Self:
+        """Validate that routing thresholds are in the correct order.
+
+        Args:
+            self: The model instance to validate.
+
+        Returns:
+            The validated settings instance.
+        """
         if not self.candidate_threshold <= self.fallback_accept_threshold <= self.accept_threshold:
             msg = (
                 "Expected candidate_threshold <= fallback_accept_threshold <= "
@@ -83,5 +98,9 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return the process-wide settings instance."""
+    """Return the process-wide settings instance.
+
+    Returns:
+        The cached Settings instance (created once and reused).
+    """
     return Settings()

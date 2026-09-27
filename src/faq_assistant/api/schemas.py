@@ -23,6 +23,14 @@ class AskQuestionRequest(BaseModel):
     @field_validator("user_question")
     @classmethod
     def _not_blank(cls, value: str) -> str:
+        """Ensure user_question is not blank.
+
+        Args:
+            value: The user_question value to validate.
+
+        Returns:
+            The stripped user_question string.
+        """
         if not value.strip():
             msg = "user_question must not be blank"
             raise ValueError(msg)
@@ -54,7 +62,14 @@ class AskQuestionResponse(BaseModel):
 
     @classmethod
     def from_domain(cls, answer: AssistantAnswer) -> "AskQuestionResponse":
-        """Map the domain answer onto the public contract."""
+        """Map the domain answer onto the public contract.
+
+        Args:
+            answer: The domain answer model to convert.
+
+        Returns:
+            An AskQuestionResponse with the mapped answer data.
+        """
         return cls(
             source=answer.source,
             matched_question=answer.matched_question or NOT_APPLICABLE,

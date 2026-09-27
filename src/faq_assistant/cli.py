@@ -42,7 +42,15 @@ def _print(payload: Any) -> None:
 
 
 async def cmd_validate(settings: Settings, args: argparse.Namespace) -> None:
-    """Show which entries would be indexed, fixed or rejected."""
+    """Show which entries would be indexed, fixed or rejected.
+
+    Args:
+        settings: Application configuration.
+        args: Parsed command-line arguments including file and collection.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     source = load_knowledge_base(args.file)
     report = curate_entries(source.knowledge_base_items, args.collection)
     _print(
@@ -58,14 +66,30 @@ async def cmd_validate(settings: Settings, args: argparse.Namespace) -> None:
 
 
 async def cmd_init_db(settings: Settings, _args: argparse.Namespace) -> None:
-    """Create the pgvector extension and schema."""
+    """Create the pgvector extension and schema.
+
+    Args:
+        settings: Application configuration.
+        _args: Parsed command-line arguments (unused).
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     store = await create_store(settings)
     await store.close()
     _print({"status": "ok", "vector_store": settings.vector_store})
 
 
 async def cmd_sync(settings: Settings, args: argparse.Namespace) -> None:
-    """Curate a knowledge-base file and embed new/changed items."""
+    """Curate a knowledge-base file and embed new/changed items.
+
+    Args:
+        settings: Application configuration.
+        args: Parsed arguments including file, collection, prune, force, and run_async.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     source = load_knowledge_base(args.file)
     if args.run_async:
         from faq_assistant.worker.tasks import sync_collection_task  # noqa: PLC0415
@@ -87,7 +111,15 @@ async def cmd_sync(settings: Settings, args: argparse.Namespace) -> None:
 
 
 async def cmd_list(settings: Settings, _args: argparse.Namespace) -> None:
-    """List collections."""
+    """List collections.
+
+    Args:
+        settings: Application configuration.
+        _args: Parsed command-line arguments (unused).
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     store = await create_store(settings)
     try:
         _print([asdict(c) for c in await store.list_collections()])
@@ -96,7 +128,15 @@ async def cmd_list(settings: Settings, _args: argparse.Namespace) -> None:
 
 
 async def cmd_delete_collection(settings: Settings, args: argparse.Namespace) -> None:
-    """Delete a collection and its items."""
+    """Delete a collection and its items.
+
+    Args:
+        settings: Application configuration.
+        args: Parsed arguments including collection name and confirmation flag.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     if not args.yes:
         msg = "Refusing to delete without --yes"
         raise SystemExit(msg)
@@ -109,7 +149,15 @@ async def cmd_delete_collection(settings: Settings, args: argparse.Namespace) ->
 
 
 async def cmd_search(settings: Settings, args: argparse.Namespace) -> None:
-    """Show retrieval candidates and scores for a query (no chat model calls)."""
+    """Show retrieval candidates and scores for a query (no chat model calls).
+
+    Args:
+        settings: Application configuration.
+        args: Parsed arguments including query and collection.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     container = await create_container(settings)
     try:
         hits = await container.searcher.search(args.query, args.collection)
@@ -130,7 +178,15 @@ async def cmd_search(settings: Settings, args: argparse.Namespace) -> None:
 
 
 async def cmd_ask(settings: Settings, args: argparse.Namespace) -> None:
-    """Run a question through the full assistant."""
+    """Run a question through the full assistant.
+
+    Args:
+        settings: Application configuration.
+        args: Parsed arguments including the question.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     container = await create_container(settings)
     try:
         answer = await container.assistant.ask(args.question)
@@ -140,7 +196,15 @@ async def cmd_ask(settings: Settings, args: argparse.Namespace) -> None:
 
 
 async def cmd_evaluate(settings: Settings, args: argparse.Namespace) -> None:
-    """Evaluate retrieval (and optionally routing) on a labelled dataset."""
+    """Evaluate retrieval (and optionally routing) on a labelled dataset.
+
+    Args:
+        settings: Application configuration.
+        args: Parsed arguments including dataset and with_router flag.
+
+    Returns:
+        None. Output is printed to stdout.
+    """
     cases = load_eval_cases(args.dataset)
     embeddings = PrefetchedQueryEmbeddings(build_embeddings(settings))
     container = await create_container(settings, embeddings=embeddings)
@@ -159,7 +223,14 @@ Command = Callable[[Settings, argparse.Namespace], Awaitable[None]]
 
 
 def build_parser(settings: Settings) -> argparse.ArgumentParser:
-    """Argument parser for all sub-commands."""
+    """Argument parser for all sub-commands.
+
+    Args:
+        settings: Application configuration containing default paths and values.
+
+    Returns:
+        An ArgumentParser configured with all available subcommands.
+    """
     parser = argparse.ArgumentParser(prog="faq-admin", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -202,7 +273,14 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point."""
+    """CLI entry point.
+
+    Args:
+        argv: Command-line arguments; defaults to sys.argv[1:] if None.
+
+    Returns:
+        Exit code: 0 on success, 1 on FAQAssistantError.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
     args = build_parser(settings).parse_args(argv)

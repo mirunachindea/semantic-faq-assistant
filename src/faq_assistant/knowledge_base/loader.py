@@ -53,12 +53,24 @@ class CurationReport:
 
 
 def derive_item_id(collection: str, search_question: str) -> str:
-    """Stable id: the same question in the same collection always maps to the same id."""
+    """Stable id: the same question in the same collection always maps to the same id.
+
+    Returns:
+        A stable UUID string derived from the collection and question.
+    """
     return str(uuid.uuid5(_ID_NAMESPACE, f"{collection}:{search_question.casefold()}"))
 
 
 def curate_entries(entries: Iterable[RawFAQEntry], collection: str) -> CurationReport:
-    """Clean, validate and de-duplicate raw entries into indexable :class:`FAQItem` objects."""
+    """Clean, validate and de-duplicate raw entries into indexable :class:`FAQItem` objects.
+
+    Args:
+        entries: Raw FAQ entries from the source file.
+        collection: The target collection name for derived stable IDs.
+
+    Returns:
+        A CurationReport with accepted items, rejected entries, and warnings.
+    """
     report = CurationReport()
     seen_ids: set[str] = set()
     for entry in entries:
@@ -100,7 +112,14 @@ def curate_entries(entries: Iterable[RawFAQEntry], collection: str) -> CurationR
 
 
 def parse_knowledge_base(payload: Any) -> KnowledgeBaseFile:
-    """Validate an already-decoded knowledge-base payload."""
+    """Validate an already-decoded knowledge-base payload.
+
+    Args:
+        payload: The decoded JSON payload to validate.
+
+    Returns:
+        A validated KnowledgeBaseFile object.
+    """
     try:
         return KnowledgeBaseFile.model_validate(payload)
     except ValidationError as exc:
@@ -109,7 +128,14 @@ def parse_knowledge_base(payload: Any) -> KnowledgeBaseFile:
 
 
 def load_knowledge_base(path: Path) -> KnowledgeBaseFile:
-    """Read and validate a knowledge-base JSON file."""
+    """Read and validate a knowledge-base JSON file.
+
+    Args:
+        path: Path to the knowledge base JSON file.
+
+    Returns:
+        A validated KnowledgeBaseFile object with all entries.
+    """
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:

@@ -34,18 +34,32 @@ class RoutingContext:
     """Per-request routing state. Retrieval runs lazily, at most once."""
 
     def __init__(self, question: str, retriever: Retriever):
+        """Initialize the routing context.
+
+        Args:
+            question: The user's question to route.
+            retriever: Async function to retrieve candidates for the question.
+        """
         self.question = question
         self._retriever = retriever
         self._hits: list[SearchHit] | None = None
 
     async def hits(self) -> list[SearchHit]:
-        """Retrieved candidates, best first."""
+        """Retrieved candidates, best first.
+
+        Returns:
+            A list of SearchHit objects sorted by score, retrieved once and cached.
+        """
         if self._hits is None:
             self._hits = await self._retriever(self.question)
         return self._hits
 
     async def best_hit(self) -> SearchHit | None:
-        """Top candidate, if any."""
+        """Top candidate, if any.
+
+        Returns:
+            The top SearchHit or None if no hits are available.
+        """
         hits = await self.hits()
         return hits[0] if hits else None
 
@@ -66,10 +80,22 @@ class InputGuardRule:
     name = "input_guard"
 
     def __init__(self, guard: InputGuard):
+        """Initialize the input guard rule.
+
+        Args:
+            guard: InputGuard instance for checking untrusted input.
+        """
         self._guard = guard
 
     async def evaluate(self, context: RoutingContext) -> RouteDecision | None:
-        """Block unsafe input before any retrieval or model call."""
+        """Block unsafe input before any retrieval or model call.
+
+        Args:
+            context: The routing context containing the question.
+
+        Returns:
+            A RouteDecision sending to compliance if input is blocked, None otherwise.
+        """
         verdict = self._guard.check(context.question)
         if verdict.allowed:
             return None
@@ -85,10 +111,22 @@ class HighConfidenceMatchRule:
     name = "high_confidence_match"
 
     def __init__(self, threshold: float):
+        """Initialize the high confidence match rule.
+
+        Args:
+            threshold: Minimum similarity score to accept a match without LLM router.
+        """
         self._threshold = threshold
 
     async def evaluate(self, context: RoutingContext) -> RouteDecision | None:
-        """Accept the top hit if its score clears the threshold."""
+        """Accept the top hit if its score clears the threshold.
+
+        Args:
+            context: The routing context containing retrieval results.
+
+        Returns:
+            A RouteDecision sending to local if threshold is met, None otherwise.
+        """
         best = await context.best_hit()
         if best is None or best.score < self._threshold:
             return None
@@ -117,12 +155,27 @@ class LLMRouterRule:
         candidate_threshold: float,
         max_candidates: int = 3,
     ):
+        """Initialize the LLM router rule.
+
+        Args:
+            chain: LLM chain to invoke for routing decisions.
+            candidate_threshold: Minimum score to include a hit as a candidate.
+            max_candidates: Maximum number of candidates to present to the LLM.
+        """
         self._chain = chain
         self._candidate_threshold = candidate_threshold
         self._max_candidates = max_candidates
 
     @staticmethod
     def _format_candidates(candidates: Sequence[tuple[str, SearchHit]]) -> str:
+        """Format candidates for presentation to the LLM router.
+
+        Args:
+            candidates: List of (candidate_id, SearchHit) tuples.
+
+        Returns:
+            A formatted string representation of the candidates for the LLM.
+        """
         if not candidates:
             return "(none)"
         return "\n\n".join(
@@ -132,7 +185,14 @@ class LLMRouterRule:
         )
 
     async def evaluate(self, context: RoutingContext) -> RouteDecision | None:
-        """Ask the LLM router for a decision and validate it."""
+        """Ask the LLM router for a decision and validate it.
+
+        Args:
+            context: The routing context containing the question and retrieval results.
+
+        Returns:
+            A RouteDecision based on the LLM's verdict, or None if validation fails.
+        """
         hits = await context.hits()
         # Short synthetic ids ("c1") instead of UUIDs: fewer tokens, fewer copy errors.
         candidates = [
@@ -183,10 +243,22 @@ class ScoreFallbackRule:
     name = "score_fallback"
 
     def __init__(self, threshold: float):
+        """Initialize the score fallback rule.
+
+        Args:
+            threshold: Minimum score to route to local instead of LLM.
+        """
         self._threshold = threshold
 
     async def evaluate(self, context: RoutingContext) -> RouteDecision | None:
-        """Local if the best score clears the threshold, otherwise the LLM."""
+        """Local if the best score clears the threshold, otherwise the LLM.
+
+        Args:
+            context: The routing context containing retrieval results.
+
+        Returns:
+            A RouteDecision routing to local or LLM based on score threshold.
+        """
         best = await context.best_hit()
         if best is not None and best.score >= self._threshold:
             return RouteDecision(
@@ -204,6 +276,11 @@ class SemanticRouter:
     """Runs routing rules in order; the first non-``None`` decision wins."""
 
     def __init__(self, rules: Sequence[RoutingRule]):
+        """Initialize the semantic router.
+
+        Args:
+            rules: Sequence of routing rules to evaluate in order.
+        """
         if not rules:
             msg = "SemanticRouter needs at least one rule"
             raise ValueError(msg)
@@ -215,7 +292,14 @@ class SemanticRouter:
         return [rule.name for rule in self._rules]
 
     async def route(self, context: RoutingContext) -> RouteDecision:
-        """Return the decision of the first rule that does not abstain."""
+        """Return the decision of the first rule that does not abstain.
+
+        Args:
+            context: The routing context containing question and retrieval results.
+
+        Returns:
+            A RouteDecision from the first matching rule or default LLM route.
+        """
         for rule in self._rules:
             decision = await rule.evaluate(context)
             if decision is not None:
@@ -234,7 +318,18 @@ def default_rules(
     candidate_threshold: float,
     fallback_accept_threshold: float,
 ) -> list[RoutingRule]:
-    """The production rule chain."""
+    """The production rule chain.
+
+    Args:
+        input_guard: Guard for blocking unsafe input.
+        router_chain: LLM chain for semantic routing decisions.
+        accept_threshold: Score for automatic local routing (high confidence).
+        candidate_threshold: Minimum score for presenting a hit to the LLM.
+        fallback_accept_threshold: Score fallback for routing when LLM router abstains.
+
+    Returns:
+        A list of RoutingRule instances in the standard evaluation order.
+    """
     return [
         InputGuardRule(input_guard),
         HighConfidenceMatchRule(accept_threshold),

@@ -10,13 +10,25 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("", response_model=HealthResponse, summary="Liveness probe")
 async def liveness() -> HealthResponse:
-    """The process is up."""
+    """The process is up.
+
+    Returns:
+        A HealthResponse indicating the process is running.
+    """
     return HealthResponse(status="ok")
 
 
 @router.get("/ready", response_model=HealthResponse, summary="Readiness probe")
 async def readiness(container: ContainerDep, response: Response) -> HealthResponse:
-    """Dependencies needed to serve traffic are reachable."""
+    """Dependencies needed to serve traffic are reachable.
+
+    Args:
+        container: The application dependency container.
+        response: HTTP response to set status code on if degraded.
+
+    Returns:
+        A HealthResponse indicating the readiness status and vector store status.
+    """
     store_ok = await container.store.ping()
     if not store_ok:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

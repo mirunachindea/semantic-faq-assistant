@@ -16,22 +16,52 @@ _bearer = HTTPBearer(auto_error=False, description="Static API token")
 
 
 def get_container(request: Request) -> Container:
-    """The application's dependency container (created in the lifespan handler)."""
+    """The application's dependency container (created in the lifespan handler).
+
+    Args:
+        request: The HTTP request context.
+
+    Returns:
+        The application's dependency container.
+    """
     container: Container = request.app.state.container
     return container
 
 
 def get_settings_dep(container: Annotated[Container, Depends(get_container)]) -> Settings:
-    """Settings bound to the running application."""
+    """Settings bound to the running application.
+
+    Args:
+        container: The application dependency container.
+
+    Returns:
+        The application settings instance.
+    """
     return container.settings
 
 
 def get_assistant(container: Annotated[Container, Depends(get_container)]) -> FAQAssistant:
-    """The FAQ assistant service."""
+    """The FAQ assistant service.
+
+    Args:
+        container: The application dependency container.
+
+    Returns:
+        The FAQ assistant service instance.
+    """
     return container.assistant
 
 
 def _matches_any(candidate: str, tokens: Sequence[SecretStr]) -> bool:
+    """Check if candidate token matches any in the sequence (constant-time).
+
+    Args:
+        candidate: The token to check.
+        tokens: The sequence of valid tokens to compare against.
+
+    Returns:
+        True if the candidate matches any token, False otherwise.
+    """
     # Compare against every token without short-circuiting to avoid timing side channels.
     matched = False
     for token in tokens:
@@ -40,6 +70,14 @@ def _matches_any(candidate: str, tokens: Sequence[SecretStr]) -> bool:
 
 
 def _unauthorized(detail: str) -> HTTPException:
+    """Create an HTTP 401 Unauthorized exception.
+
+    Args:
+        detail: The error detail message.
+
+    Returns:
+        An HTTPException with status code 401 and WWW-Authenticate header.
+    """
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=detail,
@@ -54,6 +92,13 @@ def get_token(
     """Require a valid bearer token for regular API access.
 
     Admin tokens are accepted too, so operators can use the public endpoints.
+
+    Args:
+        credentials: HTTP Bearer token from request header.
+        settings: Application configuration containing valid tokens.
+
+    Returns:
+        The validated bearer token string.
     """
     if credentials is None:
         raise _unauthorized("Missing bearer token")
@@ -66,7 +111,15 @@ def require_admin(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> str:
-    """Require an admin bearer token."""
+    """Require an admin bearer token.
+
+    Args:
+        credentials: HTTP Bearer token from request header.
+        settings: Application configuration containing admin tokens.
+
+    Returns:
+        The validated admin bearer token string.
+    """
     if credentials is None:
         raise _unauthorized("Missing bearer token")
     if not _matches_any(credentials.credentials, settings.admin_tokens):

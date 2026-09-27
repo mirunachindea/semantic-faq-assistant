@@ -39,7 +39,11 @@ class LLMChains:
 
 
 def build_chains(model: BaseChatModel) -> LLMChains:
-    """Compose prompts, model and parsers into the application's runnables."""
+    """Compose prompts, model and parsers into the application's runnables.
+
+    Returns:
+        An LLMChains object with router, answer, and personalize chains.
+    """
     structured = model.with_structured_output(RouterVerdict)
     return LLMChains(
         router=(ROUTER_PROMPT | structured).with_config(run_name="semantic_router"),  # type: ignore[arg-type]

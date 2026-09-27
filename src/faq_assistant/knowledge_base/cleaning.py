@@ -50,7 +50,15 @@ MIN_ANSWER_CHARS = 15
 
 
 def normalize_text(text: str, *, keep_newlines: bool = False) -> str:
-    """Canonicalise unicode, strip control/zero-width characters and collapse whitespace."""
+    """Canonicalise unicode, strip control/zero-width characters and collapse whitespace.
+
+    Args:
+        text: The text to normalize.
+        keep_newlines: Whether to preserve newline characters.
+
+    Returns:
+        The normalized text with unicode canonicalized and whitespace collapsed.
+    """
     text = unicodedata.normalize("NFKC", text).translate(_CHAR_TRANSLATION)
     text = _ZERO_WIDTH_RE.sub("", text)
     text = _CONTROL_RE.sub("", text)
@@ -65,6 +73,12 @@ def to_search_text(text: str) -> str:
 
     Applied symmetrically to FAQ questions at indexing time and to user queries at query
     time, so both sides live in the same text distribution.
+
+    Args:
+        text: The text to prepare for embedding and searching.
+
+    Returns:
+        The normalized and cleaned text ready for embedding.
     """
     text = normalize_text(text)
     text = _EMOJI_RE.sub(" ", text)
@@ -73,12 +87,26 @@ def to_search_text(text: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    """Lower-case alphanumeric tokens."""
+    """Lower-case alphanumeric tokens.
+
+    Args:
+        text: The text to tokenize.
+
+    Returns:
+        A list of lowercase alphanumeric tokens extracted from the text.
+    """
     return _WORD_RE.findall(text.lower())
 
 
 def normalize_category(category: str) -> str:
-    """Normalise categories to ``snake_case`` so filters and metadata stay consistent."""
+    """Normalise categories to ``snake_case`` so filters and metadata stay consistent.
+
+    Args:
+        category: The category name to normalize.
+
+    Returns:
+        The normalized category in snake_case format, or "uncategorized" if empty.
+    """
     return "_".join(tokenize(normalize_text(category))) or "uncategorized"
 
 
@@ -120,7 +148,11 @@ QualityRule = Callable[[str, str, str], RuleResult]
 
 
 def rule_question_too_short(_question: str, search_question: str, answer: str) -> RuleResult:
-    """Reject placeholder questions such as ``"x"`` that would match anything and nothing."""
+    """Reject placeholder questions such as ``"x"`` that would match anything and nothing.
+
+    Returns:
+        A tuple of (answer, QualityIssue) if the question is too short, None otherwise.
+    """
     words = [token for token in tokenize(search_question) if len(token) > 1]
     if len(words) < MIN_QUESTION_WORDS:
         return answer, QualityIssue(
@@ -132,7 +164,11 @@ def rule_question_too_short(_question: str, search_question: str, answer: str) -
 
 
 def rule_answer_not_informative(_question: str, _search_question: str, answer: str) -> RuleResult:
-    """Reject answers that are empty, too short or read like a user complaint."""
+    """Reject answers that are empty, too short or read like a user complaint.
+
+    Returns:
+        A tuple of (answer, QualityIssue) if the answer is not informative, None otherwise.
+    """
     stripped = to_search_text(answer)
     if len(stripped) < MIN_ANSWER_CHARS or _USER_PLEA_RE.search(stripped):
         return answer, QualityIssue(
@@ -144,7 +180,11 @@ def rule_answer_not_informative(_question: str, _search_question: str, answer: s
 
 
 def rule_noisy_question(question: str, search_question: str, answer: str) -> RuleResult:
-    """Flag questions that required emoji/punctuation cleanup before embedding."""
+    """Flag questions that required emoji/punctuation cleanup before embedding.
+
+    Returns:
+        A tuple of (answer, QualityIssue) if cleanup was needed, None otherwise.
+    """
     if search_question != normalize_text(question):
         return answer, QualityIssue(
             "noisy_question", Severity.WARNING, "Emoji/repeated punctuation removed for search."
@@ -153,7 +193,11 @@ def rule_noisy_question(question: str, search_question: str, answer: str) -> Rul
 
 
 def rule_literal_password_example(_question: str, _search: str, answer: str) -> RuleResult:
-    """Strip sentences that recommend concrete example passwords (unsafe advice)."""
+    """Strip sentences that recommend concrete example passwords (unsafe advice).
+
+    Returns:
+        A tuple of (fixed_answer, QualityIssue) if sentences were removed, None otherwise.
+    """
     fixed = _LITERAL_PASSWORD_SENTENCE_RE.sub("", answer)
     if fixed != answer:
         fixed = normalize_text(fixed, keep_newlines=True)
@@ -179,7 +223,17 @@ def clean_entry(
     category: str,
     rules: tuple[QualityRule, ...] = DEFAULT_RULES,
 ) -> CleanedEntry:
-    """Normalise a raw entry and run all quality rules over it."""
+    """Normalise a raw entry and run all quality rules over it.
+
+    Args:
+        question: The raw FAQ question text.
+        answer: The raw FAQ answer text.
+        category: The raw category name.
+        rules: Quality rules to apply; defaults to standard rules.
+
+    Returns:
+        A CleanedEntry with normalized text and quality issues found.
+    """
     clean_question = normalize_text(question)
     search_question = to_search_text(question)
     clean_answer = normalize_text(answer, keep_newlines=True)

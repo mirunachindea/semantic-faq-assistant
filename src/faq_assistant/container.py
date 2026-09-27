@@ -40,12 +40,23 @@ class Container:
     assistant: FAQAssistant
 
     async def aclose(self) -> None:
-        """Release resources held by dependencies."""
+        """Release resources held by dependencies.
+
+        Returns:
+            None. Resources are released as a side effect.
+        """
         await self.store.close()
 
 
 async def create_store(settings: Settings) -> VectorStore:
-    """Instantiate and initialise the configured vector store."""
+    """Instantiate and initialise the configured vector store.
+
+    Args:
+        settings: Application configuration containing vector store type and credentials.
+
+    Returns:
+        An initialized VectorStore instance (in-memory or PostgreSQL).
+    """
     if settings.vector_store == "memory":
         return InMemoryVectorStore()
     store = PostgresVectorStore(settings.database_url, settings.embedding_dimensions)
@@ -56,7 +67,16 @@ async def create_store(settings: Settings) -> VectorStore:
 def create_indexer(
     settings: Settings, store: VectorStore, embeddings: Embeddings
 ) -> EmbeddingIndexer:
-    """Build the embedding indexer for the configured model."""
+    """Build the embedding indexer for the configured model.
+
+    Args:
+        settings: Application configuration containing embedding model and provider.
+        store: Vector store instance to sync embeddings with.
+        embeddings: Embeddings model for generating vectors.
+
+    Returns:
+        An EmbeddingIndexer instance ready for syncing items.
+    """
     return EmbeddingIndexer(
         store,
         embeddings,
@@ -68,7 +88,16 @@ def create_indexer(
 async def sync_knowledge_base(
     settings: Settings, indexer: EmbeddingIndexer, *, prune: bool = False
 ) -> SyncReport:
-    """Curate the configured knowledge-base file and sync it into the default collection."""
+    """Curate the configured knowledge-base file and sync it into the default collection.
+
+    Args:
+        settings: Application configuration containing knowledge base path and collection name.
+        indexer: Embedding indexer for syncing items to the vector store.
+        prune: Whether to delete items not in the source file.
+
+    Returns:
+        A SyncReport summarizing the number of items added, updated, and deleted.
+    """
     source = load_knowledge_base(settings.knowledge_base_path)
     curated = curate_entries(source.knowledge_base_items, settings.default_collection)
     return await indexer.sync(settings.default_collection, curated.items, prune=prune)
@@ -81,7 +110,17 @@ async def create_container(
     embeddings: Embeddings | None = None,
     chains: LLMChains | None = None,
 ) -> Container:
-    """Build all dependencies. Any argument overrides the settings-driven default."""
+    """Build all dependencies. Any argument overrides the settings-driven default.
+
+    Args:
+        settings: Application configuration.
+        store: Vector store instance; created from settings if None.
+        embeddings: Embeddings model; created from settings if None.
+        chains: LLM chains; created from settings if None.
+
+    Returns:
+        A Container holding all application dependencies.
+    """
     store = store or await create_store(settings)
     embeddings = embeddings or build_embeddings(settings)
     chains = chains or build_chains(build_chat_model(settings))

@@ -19,12 +19,20 @@ class FAQItem(BaseModel):
 
     @property
     def question_text(self) -> str:
-        """Text used for the question-only embedding (question-to-question matching)."""
+        """Text used for the question-only embedding (question-to-question matching).
+
+        Returns:
+            The search question text from metadata or the question itself.
+        """
         return str(self.metadata.get("search_question", self.question))
 
     @property
     def document_text(self) -> str:
-        """Text used for the full-document embedding (question-to-content matching)."""
+        """Text used for the full-document embedding (question-to-content matching).
+
+        Returns:
+            A formatted document containing topic, question, and answer text.
+        """
         topic = self.category.replace("_", " ")
         return f"Topic: {topic}\nQuestion: {self.question_text}\nAnswer: {self.answer}"
 

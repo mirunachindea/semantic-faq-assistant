@@ -26,7 +26,14 @@ def _credentials(settings: Settings) -> dict[str, Any]:
 
 
 def build_chat_model(settings: Settings) -> BaseChatModel:
-    """Create the chat model configured in ``settings``."""
+    """Create the chat model configured in ``settings``.
+
+    Args:
+        settings: Application configuration containing model provider and name.
+
+    Returns:
+        A LangChain BaseChatModel instance for the configured provider and model.
+    """
     model: BaseChatModel = init_chat_model(
         settings.chat_model,
         model_provider=settings.llm_provider,
@@ -39,7 +46,14 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
 
 
 def build_embeddings(settings: Settings) -> Embeddings:
-    """Create the embedding model configured in ``settings``."""
+    """Create the embedding model configured in ``settings``.
+
+    Args:
+        settings: Application configuration containing embedding provider and model.
+
+    Returns:
+        A LangChain Embeddings instance for the configured provider and model.
+    """
     kwargs: dict[str, Any] = {
         **_credentials(settings),
         "max_retries": settings.llm_max_retries,

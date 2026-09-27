@@ -7,13 +7,22 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
 
 class _RequestIdFilter(logging.Filter):
+    """Filter that injects the request ID into log records."""
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = request_id_var.get()
         return True
 
 
 def configure_logging(level: str = "INFO") -> None:
-    """Configure root logging once; safe to call repeatedly."""
+    """Configure root logging once; safe to call repeatedly.
+
+    Args:
+        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+
+    Returns:
+        None. Logging is configured as a side effect.
+    """
     root = logging.getLogger()
     if any(getattr(handler, "_faq_handler", False) for handler in root.handlers):
         root.setLevel(level.upper())

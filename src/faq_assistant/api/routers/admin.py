@@ -15,7 +15,15 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/collections", response_model=list[CollectionSummary])
 async def list_collections(container: ContainerDep, _admin: AdminDep) -> list[CollectionSummary]:
-    """List stored collections and their item counts."""
+    """List stored collections and their item counts.
+
+    Args:
+        container: The application dependency container.
+        _admin: Validated admin token (authentication).
+
+    Returns:
+        A list of CollectionSummary objects describing stored collections.
+    """
     return [
         CollectionSummary(
             name=c.name,
@@ -39,7 +47,18 @@ async def ingest_items(
     container: ContainerDep,
     _admin: AdminDep,
 ) -> TaskAccepted:
-    """Queue curation + incremental embedding of items into ``collection`` (Celery)."""
+    """Queue curation + incremental embedding of items into ``collection`` (Celery).
+
+    Args:
+        collection: Target collection name.
+        payload: Ingestion request containing knowledge base items.
+        request: HTTP request context.
+        container: The application dependency container.
+        _admin: Validated admin token (authentication).
+
+    Returns:
+        A TaskAccepted response with the task ID and status URL.
+    """
     if container.settings.vector_store != "postgres":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -61,7 +80,15 @@ async def ingest_items(
 
 @router.get("/tasks/{task_id}", response_model=TaskStatus, name="get_task_status")
 async def get_task_status(task_id: str, _admin: AdminDep) -> TaskStatus:
-    """State of a queued ingestion job."""
+    """State of a queued ingestion job.
+
+    Args:
+        task_id: The Celery task ID to check.
+        _admin: Validated admin token (authentication).
+
+    Returns:
+        A TaskStatus object with the task state, result, and any errors.
+    """
     from faq_assistant.worker.celery_app import celery_app  # noqa: PLC0415
 
     result = celery_app.AsyncResult(task_id)

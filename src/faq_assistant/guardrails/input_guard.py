@@ -62,10 +62,22 @@ class InputGuard:
     """Normalises user input and blocks known injection / abuse patterns."""
 
     def __init__(self, max_chars: int = 500):
+        """Initialize the input guard.
+
+        Args:
+            max_chars: Maximum allowed input length in characters.
+        """
         self._max_chars = max_chars
 
     def check(self, raw_text: str) -> GuardVerdict:
-        """Return the normalised text and whether it may proceed."""
+        """Return the normalised text and whether it may proceed.
+
+        Args:
+            raw_text: The user's input text to validate and normalize.
+
+        Returns:
+            A GuardVerdict indicating if the input is allowed and the normalized text.
+        """
         # Normalisation defeats trivial obfuscation (zero-width chars, homoglyph dashes,
         # full-width letters via NFKC) before pattern matching.
         text = normalize_text(raw_text)

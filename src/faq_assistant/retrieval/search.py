@@ -77,7 +77,11 @@ _MIN_STEM = 3
 
 
 def _stem(token: str) -> str:
-    """Very light stemmer: plurals, -ing/-ed and a trailing -e (change/changed/changing)."""
+    """Very light stemmer: plurals, -ing/-ed and a trailing -e (change/changed/changing).
+
+    Returns:
+        The stemmed token with common suffixes removed.
+    """
     if token.endswith("ies") and len(token) > _MIN_STEM + 2:
         token = token[:-3] + "y"
     elif token.endswith("s") and not token.endswith("ss") and len(token) > _MIN_STEM + 1:
@@ -92,12 +96,20 @@ def _stem(token: str) -> str:
 
 
 def content_terms(text: str) -> set[str]:
-    """Stemmed, stop-word-free terms of ``text``."""
+    """Stemmed, stop-word-free terms of ``text``.
+
+    Returns:
+        A set of stemmed content terms after removing stop words.
+    """
     return {_stem(t) for t in tokenize(text) if t not in _STOPWORDS}
 
 
 def lexical_overlap(query: str, document: str) -> float:
-    """Fraction of query terms present in ``document`` (0 when the query has no terms)."""
+    """Fraction of query terms present in ``document`` (0 when the query has no terms).
+
+    Returns:
+        A float between 0 and 1 representing the fraction of query terms in the document.
+    """
     query_terms = content_terms(query)
     if not query_terms:
         return 0.0
@@ -105,7 +117,11 @@ def lexical_overlap(query: str, document: str) -> float:
 
 
 def combine_scores(dense: float, lexical: float, weight: float) -> float:
-    """Bounded lexical boost on top of the dense score (see module docstring)."""
+    """Bounded lexical boost on top of the dense score (see module docstring).
+
+    Returns:
+        A combined score between dense and 1.0 with lexical boost applied.
+    """
     dense = max(0.0, min(1.0, dense))
     return dense + weight * lexical * (1.0 - dense)
 
@@ -121,13 +137,29 @@ class HybridSearcher:
         top_k: int = 5,
         lexical_weight: float = 0.2,
     ):
+        """Initialize the hybrid searcher.
+
+        Args:
+            store: Vector store for semantic search.
+            embeddings: Embeddings model for query vectorization.
+            top_k: Maximum number of candidates to retrieve before re-ranking.
+            lexical_weight: Influence of lexical overlap on final scores (0-1).
+        """
         self._store = store
         self._embeddings = embeddings
         self._top_k = top_k
         self._lexical_weight = lexical_weight
 
     async def search(self, query: str, collection: str) -> list[SearchHit]:
-        """Return hits ordered by descending combined score."""
+        """Return hits ordered by descending combined score.
+
+        Args:
+            query: User's search query.
+            collection: Collection name to search within.
+
+        Returns:
+            A list of SearchHit objects sorted by combined score in descending order.
+        """
         search_text = to_search_text(query)
         async with upstream_call("query embedding"):
             vector: Sequence[float] = await self._embeddings.aembed_query(search_text)

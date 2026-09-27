@@ -22,10 +22,22 @@ class OutputGuard:
     """Rejects empty, leaking or oversized model outputs."""
 
     def __init__(self, max_chars: int = 2000):
+        """Initialize the output guard.
+
+        Args:
+            max_chars: Maximum allowed output length in characters.
+        """
         self._max_chars = max_chars
 
     def check(self, raw_text: str | None) -> GuardVerdict:
-        """Validate (and lightly normalise) a model output."""
+        """Validate (and lightly normalise) a model output.
+
+        Args:
+            raw_text: The model's output text to validate.
+
+        Returns:
+            A GuardVerdict indicating if the output is allowed and the normalized text.
+        """
         if not isinstance(raw_text, str):
             return GuardVerdict(allowed=False, text="", reason="malformed_output")
         text = normalize_text(raw_text, keep_newlines=True)
