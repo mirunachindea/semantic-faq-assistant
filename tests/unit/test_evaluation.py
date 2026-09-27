@@ -23,12 +23,18 @@ CASES = [
 
 
 def test_bundled_dataset_parses() -> None:
+    """Test evaluation dataset loads and contains expected routing categories."""
     cases = load_eval_cases(DATASET)
     assert len(cases) > 30
     assert {c.expected_route for c in cases} == {"local", "llm", "compliance"}
 
 
 async def test_retrieval_metrics(container: Container) -> None:
+    """Test retrieval evaluation computes ranking metrics.
+
+    Args:
+        container: Test container fixture with searcher.
+    """
     report = await evaluate_retrieval(container.searcher, "faq", CASES, thresholds=(0.0, 0.99))
     assert report.cases == 1
     assert report.hit_at_1 == 1.0
@@ -38,6 +44,11 @@ async def test_retrieval_metrics(container: Container) -> None:
 
 
 async def test_routing_metrics(container: Container) -> None:
+    """Test routing evaluation computes accuracy and confusion matrix.
+
+    Args:
+        container: Test container fixture with assistant.
+    """
     report = await evaluate_routing(container.assistant, CASES)
     assert report.cases == 2
     assert report.match_accuracy == 1.0
@@ -45,6 +56,7 @@ async def test_routing_metrics(container: Container) -> None:
 
 
 async def test_prefetch_batches_queries_into_one_call() -> None:
+    """Test PrefetchedQueryEmbeddings batches and deduplicates prefetch calls."""
     inner = BagOfWordsEmbeddings()
     calls: list[int] = []
     original = inner.embed_documents

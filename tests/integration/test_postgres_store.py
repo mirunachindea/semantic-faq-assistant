@@ -12,7 +12,11 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from faq_assistant.domain.errors import CollectionNotFoundError, EmbeddingModelMismatchError
+from faq_assistant.domain.errors import (
+    CollectionNotFoundError,
+    EmbeddingModelMismatchError,
+    VectorStoreError,
+)
 from faq_assistant.domain.models import FAQItem
 from faq_assistant.knowledge_base.indexer import EmbeddingIndexer
 from faq_assistant.storage.postgres import PostgresVectorStore
@@ -32,19 +36,38 @@ ITEMS = [
 
 @pytest.fixture
 async def store() -> AsyncIterator[PostgresVectorStore]:
+    """PostgreSQL/pgvector store fixture with setup and cleanup.
+
+    Yields:
+        PostgresVectorStore: Initialized vector store for testing.
+    """
     assert DSN is not None
     pg = PostgresVectorStore(DSN, DIMENSIONS)
-    await pg.initialize()
+    try:
+        await pg.initialize()
+    except VectorStoreError as exc:
+        pytest.skip(f"PostgreSQL test database is unavailable: {exc}")
     yield pg
     await pg.close()
 
 
 @pytest.fixture
 def collection() -> str:
+    """Unique test collection name.
+
+    Returns:
+        str: Collection identifier for testing.
+    """
     return f"test-{uuid.uuid4().hex[:8]}"
 
 
 async def test_sync_search_and_prune_roundtrip(store: PostgresVectorStore, collection: str) -> None:
+    """Test PostgreSQL store sync, search, and prune operations.
+
+    Args:
+        store: PostgreSQL vector store fixture.
+        collection: Unique test collection fixture.
+    """
     embeddings = BagOfWordsEmbeddings()
     indexer = EmbeddingIndexer(store, embeddings, embedding_model="fake", dimensions=DIMENSIONS)
     try:

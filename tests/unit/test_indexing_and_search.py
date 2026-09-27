@@ -9,6 +9,16 @@ from tests.fakes import DIMENSIONS, BagOfWordsEmbeddings
 
 
 def _item(item_id: str, question: str, answer: str = "Some helpful answer.") -> FAQItem:
+    """Create a test FAQ item.
+
+    Args:
+        item_id: Unique item identifier.
+        question: Question text.
+        answer: Answer text (default provided).
+
+    Returns:
+        FAQItem: Test FAQ item.
+    """
     return FAQItem(id=item_id, question=question, answer=answer, category="general")
 
 
@@ -21,17 +31,37 @@ ITEMS = [
 
 @pytest.fixture
 def store() -> InMemoryVectorStore:
+    """In-memory vector store for testing.
+
+    Returns:
+        InMemoryVectorStore: Test vector store instance.
+    """
     return InMemoryVectorStore()
 
 
 @pytest.fixture
 def indexer(store: InMemoryVectorStore, embeddings: BagOfWordsEmbeddings) -> EmbeddingIndexer:
+    """Embedding indexer with test store and embeddings.
+
+    Args:
+        store: In-memory vector store fixture.
+        embeddings: Test embeddings fixture.
+
+    Returns:
+        EmbeddingIndexer: Indexer instance for testing.
+    """
     return EmbeddingIndexer(store, embeddings, embedding_model="fake", dimensions=DIMENSIONS)
 
 
 async def test_first_sync_embeds_question_and_document_per_item(
     indexer: EmbeddingIndexer, embeddings: BagOfWordsEmbeddings
 ) -> None:
+    """Test first sync embeds both question and answer for each item.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        embeddings: Test embeddings fixture.
+    """
     report = await indexer.sync("faq", ITEMS)
     assert len(report.added) == 3
     assert report.embedded_texts == 6
@@ -41,6 +71,12 @@ async def test_first_sync_embeds_question_and_document_per_item(
 async def test_resync_is_token_free_and_only_changed_items_are_reembedded(
     indexer: EmbeddingIndexer, embeddings: BagOfWordsEmbeddings
 ) -> None:
+    """Test resync avoids re-embedding unchanged items.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        embeddings: Test embeddings fixture.
+    """
     await indexer.sync("faq", ITEMS)
     embeddings.embedded_texts.clear()
 
@@ -58,6 +94,12 @@ async def test_resync_is_token_free_and_only_changed_items_are_reembedded(
 async def test_sync_without_prune_keeps_existing_items(
     indexer: EmbeddingIndexer, store: InMemoryVectorStore
 ) -> None:
+    """Test sync prunes items when requested.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        store: In-memory vector store fixture.
+    """
     await indexer.sync("faq", ITEMS)
     await indexer.sync("faq", ITEMS[:1])
     assert len(await store.get_content_hashes("faq")) == 3
@@ -70,6 +112,13 @@ async def test_sync_without_prune_keeps_existing_items(
 async def test_collections_are_isolated_and_model_locked(
     indexer: EmbeddingIndexer, store: InMemoryVectorStore, embeddings: BagOfWordsEmbeddings
 ) -> None:
+    """Test collections are isolated and embedding model is locked per collection.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        store: In-memory vector store fixture.
+        embeddings: Test embeddings fixture.
+    """
     await indexer.sync("faq", ITEMS)
     await indexer.sync("billing", ITEMS[1:2])
     counts = {c.name: c.item_count for c in await store.list_collections()}
@@ -85,6 +134,12 @@ async def test_collections_are_isolated_and_model_locked(
 async def test_embedding_failures_become_upstream_errors(
     indexer: EmbeddingIndexer, embeddings: BagOfWordsEmbeddings
 ) -> None:
+    """Test embedding failures are translated to UpstreamServiceError.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        embeddings: Test embeddings fixture.
+    """
     embeddings.fail_with = RuntimeError("connection reset")
     with pytest.raises(UpstreamServiceError):
         await indexer.sync("faq", ITEMS)
@@ -93,6 +148,13 @@ async def test_embedding_failures_become_upstream_errors(
 async def test_hybrid_search_ranks_best_match_first(
     indexer: EmbeddingIndexer, store: InMemoryVectorStore, embeddings: BagOfWordsEmbeddings
 ) -> None:
+    """Test hybrid search combines dense and lexical ranking.
+
+    Args:
+        indexer: Embedding indexer fixture.
+        store: In-memory vector store fixture.
+        embeddings: Test embeddings fixture.
+    """
     await indexer.sync("faq", ITEMS)
     searcher = HybridSearcher(store, embeddings, top_k=3, lexical_weight=0.2)
     hits = await searcher.search("how can I cancel the subscription??? 😭", "faq")
@@ -102,12 +164,19 @@ async def test_hybrid_search_ranks_best_match_first(
 
 
 def test_lexical_overlap_ignores_stopwords_and_plural() -> None:
+    """Test lexical overlap calculation handles stopwords and pluralization."""
     assert lexical_overlap("download my invoices", "Where can I download invoice?") == 1.0
     assert lexical_overlap("the and of", "anything") == 0.0
 
 
 @pytest.mark.parametrize(("dense", "lexical"), [(0.0, 1.0), (0.5, 0.5), (0.9, 1.0), (1.0, 1.0)])
 def test_lexical_boost_is_bounded_and_monotonic(dense: float, lexical: float) -> None:
+    """Test score combination is bounded and monotonic.
+
+    Args:
+        dense: Dense search score.
+        lexical: Lexical search score.
+    """
     score = combine_scores(dense, lexical, 0.2)
     assert dense <= score <= 1.0
     assert combine_scores(dense, 0.0, 0.2) == dense

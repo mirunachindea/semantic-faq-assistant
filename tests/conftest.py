@@ -15,6 +15,11 @@ ADMIN_TOKEN = "admin-token"
 
 @pytest.fixture
 def settings() -> Settings:
+    """Test configuration settings.
+
+    Returns:
+        Settings: Test environment with in-memory store and fixed tokens.
+    """
     return Settings(
         _env_file=None,
         environment="test",
@@ -29,6 +34,11 @@ def settings() -> Settings:
 
 @pytest.fixture
 def embeddings() -> BagOfWordsEmbeddings:
+    """Test embeddings using bag-of-words hashing.
+
+    Returns:
+        BagOfWordsEmbeddings: Deterministic embeddings for testing.
+    """
     return BagOfWordsEmbeddings()
 
 
@@ -36,6 +46,15 @@ def embeddings() -> BagOfWordsEmbeddings:
 async def container(
     settings: Settings, embeddings: BagOfWordsEmbeddings
 ) -> AsyncIterator[Container]:
+    """Test container with in-memory store and fake chains.
+
+    Args:
+        settings: Test configuration settings.
+        embeddings: Test embeddings fixture.
+
+    Yields:
+        Container: Initialized test container with dependencies.
+    """
     chains, _ = make_chains()
     built = await create_container(
         settings, store=InMemoryVectorStore(), embeddings=embeddings, chains=chains

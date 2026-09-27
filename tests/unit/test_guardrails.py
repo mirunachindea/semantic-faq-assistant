@@ -26,6 +26,11 @@ guard = InputGuard(max_chars=500)
     ],
 )
 def test_injection_attempts_are_blocked(attack: str) -> None:
+    """Test prompt injection attempts are detected and blocked.
+
+    Args:
+        attack: Prompt injection payload string.
+    """
     verdict = guard.check(attack)
     assert not verdict.allowed
     assert verdict.reason is not None
@@ -44,10 +49,16 @@ def test_injection_attempts_are_blocked(attack: str) -> None:
     ],
 )
 def test_benign_questions_are_allowed(question: str) -> None:
+    """Test legitimate user questions pass input guard.
+
+    Args:
+        question: Legitimate question string.
+    """
     assert guard.check(question).allowed
 
 
 def test_input_guard_limits() -> None:
+    """Test input guard enforces character limits and rejects empty input."""
     assert guard.check("   ").reason == "empty_input"
     assert guard.check("a" * 501).reason == "input_too_long"
 
@@ -56,6 +67,7 @@ output_guard = OutputGuard(max_chars=50)
 
 
 def test_output_guard_accepts_normal_text() -> None:
+    """Test output guard accepts benign text."""
     verdict = output_guard.check("Go to Settings -> Security.")
     assert verdict.allowed
     assert verdict.text == "Go to Settings -> Security."
@@ -72,16 +84,24 @@ def test_output_guard_accepts_normal_text() -> None:
     ],
 )
 def test_output_guard_rejects_unsafe_output(output: str | None, reason: str) -> None:
+    """Test output guard rejects unsafe content.
+
+    Args:
+        output: Output string containing safety issues.
+        reason: Expected rejection reason.
+    """
     verdict = output_guard.check(output)
     assert not verdict.allowed
     assert verdict.reason == reason
 
 
 def test_output_guard_allows_key_format_hint_from_kb() -> None:
+    """Test output guard permits key format hints from knowledge base context."""
     assert OutputGuard().check("Create a key (format: sk_live_\\w{32}); store it.").allowed
 
 
 def test_output_guard_truncates_long_output() -> None:
+    """Test output guard truncates text exceeding max character limit."""
     verdict = output_guard.check("word " * 30)
     assert verdict.allowed
     assert verdict.reason == "truncated"
