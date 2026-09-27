@@ -281,7 +281,7 @@ Through the HTTP API:
 
 ```bash
 curl -s localhost:8000/ask-question \
-  -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_TOKENS" -H "Content-Type: application/json" \
   -d '{"user_question": "Where can I download invoices?"}'
 ```
 
